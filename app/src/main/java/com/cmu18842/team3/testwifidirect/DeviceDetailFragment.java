@@ -57,7 +57,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
     private WifiP2pDevice device;
     private WifiP2pInfo info;
 
-    private InetAddress destAddr;
+    private String destAddr;
 
     ProgressDialog progressDialog = null;
 
@@ -116,6 +116,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                         startActivityForResult(intent, CHOOSE_FILE_RESULT_CODE);*/
 
                         if (destAddr == null) {
+                            Log.v(WiFiDirectActivity.TAG, "destAddr is null");
                             return;
                         }
 
@@ -140,7 +141,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                         //serviceIntent.putExtra(MessageTransferService.EXTRAS_DESTINATION_ADDRESS,
                         //        info.groupOwnerAddress.getHostAddress());
                         serviceIntent.putExtra(MessageTransferService.EXTRAS_DESTINATION_ADDRESS,
-                                        destAddr.getHostAddress());
+                                        destAddr);
 
                         serviceIntent.putExtra(MessageTransferService.EXTRAS_DESTINATION_PORT, 8988);
                         getActivity().startService(serviceIntent);
@@ -204,7 +205,8 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         // TODO: Modified to let every node setting up server
         if (info.groupFormed) {
             if (!info.isGroupOwner) {
-                destAddr = info.groupOwnerAddress;
+                destAddr = info.groupOwnerAddress.getHostAddress();
+
 
                 Intent serviceIntent = new Intent(getActivity(), MessageTransferService.class);
 
@@ -218,7 +220,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 //serviceIntent.putExtra(MessageTransferService.EXTRAS_DESTINATION_ADDRESS,
                 //        info.groupOwnerAddress.getHostAddress());
                 serviceIntent.putExtra(MessageTransferService.EXTRAS_DESTINATION_ADDRESS,
-                        destAddr.getHostAddress());
+                        destAddr);
 
                 serviceIntent.putExtra(MessageTransferService.EXTRAS_DESTINATION_PORT, 8988);
 
@@ -226,9 +228,9 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 
                 getActivity().startService(serviceIntent);
 
-                Log.v(WiFiDirectActivity.TAG, "Sending initial message to " + destAddr.getHostAddress());
+                Log.v(WiFiDirectActivity.TAG, "Sending initial message to " + destAddr);
 
-                Toast.makeText(getActivity(), destAddr.getHostAddress(),
+                Toast.makeText(getActivity(), destAddr,
                         Toast.LENGTH_SHORT).show();
             }
             //else {
@@ -293,14 +295,14 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         private Context context;
         private TextView statusText;
         private AlertDialog.Builder dialog;
-        private InetAddress destAddr;
+        private String destAddr;
 
         /**
          * @param context
          * @param statusText
          */
         public MessageServerAsyncTask(Context context, View statusText,
-                                      AlertDialog.Builder dialog, InetAddress destAddr) {
+                                      AlertDialog.Builder dialog, String destAddr) {
             this.context = context;
             this.statusText = (TextView) statusText;
             this.dialog = dialog;
@@ -342,13 +344,13 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 
                 // record the address
                 if (message != null) {
-                    if (message.getIsInit()) {
-                        destAddr = client.getInetAddress();
 
-                        Log.v(WiFiDirectActivity.TAG, "Receive initial message");
-                        Log.v(WiFiDirectActivity.TAG, destAddr.getHostAddress());
+                    //destAddr = client.getInetAddress();
+                    destAddr = new String(client.getInetAddress().getHostAddress());
 
-                    }
+                    Log.v(WiFiDirectActivity.TAG, "Receive message");
+                    Log.v(WiFiDirectActivity.TAG, destAddr);
+
                 }
 
                 return message;
