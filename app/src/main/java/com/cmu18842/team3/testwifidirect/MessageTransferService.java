@@ -19,7 +19,7 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 
 /**
- * A service that process each file transfer request i.e Intent by opening a
+ * A service that process each message transfer request i.e Intent by opening a
  * socket connection with the WiFi Direct Group Owner and writing the file
  */
 public class MessageTransferService extends IntentService {
@@ -36,8 +36,8 @@ public class MessageTransferService extends IntentService {
     public static final String EXTRAS_FRAGMENT = "fragment";
 
     public static final String EXTRA_MESSAGE_CONTENT = "message_content";
-    public static final String EXTRAS_DESTINATION_ADDRESS = "go_host";
-    public static final String EXTRAS_DESTINATION_PORT = "go_port";
+    public static final String EXTRAS_DESTINATION_ADDRESS = "host";
+    public static final String EXTRAS_DESTINATION_PORT = "port";
 
     public MessageTransferService(String name) {
         super(name);
