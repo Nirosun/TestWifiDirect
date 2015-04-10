@@ -39,7 +39,9 @@ import android.widget.Toast;
 
 import com.cmu18842.team3.testwifidirect.DeviceListFragment.DeviceActionListener;
 
+import java.io.InputStream;
 import java.io.ObjectInputStream;
+import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -50,7 +52,7 @@ import java.net.Socket;
  */
 public class DeviceDetailFragment extends Fragment implements ConnectionInfoListener {
 
-    protected static final int CHOOSE_FILE_RESULT_CODE = 20;
+    //protected static final int CHOOSE_FILE_RESULT_CODE = 20;
     private View mContentView = null;
     private WifiP2pDevice device;
     private WifiP2pInfo info;
@@ -58,6 +60,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
     private InetAddress destAddr;
 
     ProgressDialog progressDialog = null;
+
 
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
@@ -112,6 +115,10 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                         intent.setType("image/*");
                         startActivityForResult(intent, CHOOSE_FILE_RESULT_CODE);*/
 
+                        if (destAddr == null) {
+                            return;
+                        }
+
                         // Allow user to send message
                         EditText editMessage = (EditText) mContentView.findViewById(R.id.edit_message);
                         TextView statusText = (TextView) mContentView.findViewById(R.id.status_text);
@@ -130,19 +137,15 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                         serviceIntent.setAction(MessageTransferService.ACTION_SEND_MESSAGE);
                         serviceIntent.putExtra(MessageTransferService.EXTRA_MESSAGE_CONTENT, message);
 
-                        serviceIntent.putExtra(MessageTransferService.EXTRAS_DESTINATION_ADDRESS,
-                                info.groupOwnerAddress.getHostAddress());
                         //serviceIntent.putExtra(MessageTransferService.EXTRAS_DESTINATION_ADDRESS,
-                        //                destAddr.getHostAddress());
+                        //        info.groupOwnerAddress.getHostAddress());
+                        serviceIntent.putExtra(MessageTransferService.EXTRAS_DESTINATION_ADDRESS,
+                                        destAddr.getHostAddress());
 
                         serviceIntent.putExtra(MessageTransferService.EXTRAS_DESTINATION_PORT, 8988);
                         getActivity().startService(serviceIntent);
 
                         //statusText.setText("Message 2: " + message.getMessageContent());
-
-                        /*if (destAddr == null) {
-                            return;
-                        }*/
 
                         /*Toast.makeText(getActivity(), "Message should sent",
                                 Toast.LENGTH_SHORT).show();*/
@@ -201,7 +204,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         // TODO: Modified to let every node setting up server
         if (info.groupFormed) {
             if (!info.isGroupOwner) {
-                /*destAddr = info.groupOwnerAddress;
+                destAddr = info.groupOwnerAddress;
 
                 Intent serviceIntent = new Intent(getActivity(), MessageTransferService.class);
 
@@ -226,15 +229,15 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 Log.v(WiFiDirectActivity.TAG, "Sending initial message to " + destAddr.getHostAddress());
 
                 Toast.makeText(getActivity(), destAddr.getHostAddress(),
-                        Toast.LENGTH_SHORT).show();*/
+                        Toast.LENGTH_SHORT).show();
             }
-            else {
+            //else {
                 new MessageServerAsyncTask(getActivity(),
                         mContentView.findViewById(R.id.status_text),
-                        new AlertDialog.Builder(getActivity())/*,
-                        destAddr*/)
+                        new AlertDialog.Builder(getActivity()),
+                        destAddr)
                         .execute();
-            }
+            //}
 
             // The other device acts as the client. In this case, we enable the
             // get file button.
@@ -285,28 +288,29 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
      * A simple server socket that accepts connection and writes some data on
      * the stream.
      */
-    public static class MessageServerAsyncTask extends AsyncTask<Void, Void, Message> {
+    public class MessageServerAsyncTask extends AsyncTask<Void, Void, Message> {
 
         private Context context;
         private TextView statusText;
         private AlertDialog.Builder dialog;
-        //private InetAddress destAddr;
+        private InetAddress destAddr;
 
         /**
          * @param context
          * @param statusText
          */
         public MessageServerAsyncTask(Context context, View statusText,
-                                      AlertDialog.Builder dialog/*, InetAddress destAddr*/) {
+                                      AlertDialog.Builder dialog, InetAddress destAddr) {
             this.context = context;
             this.statusText = (TextView) statusText;
             this.dialog = dialog;
-            //this.destAddr = destAddr;
+            this.destAddr = destAddr;
         }
 
         @Override
         protected Message doInBackground(Void... params) {
             try {
+
                 ServerSocket serverSocket = new ServerSocket(8988);
                 Log.d(WiFiDirectActivity.TAG, "Server: Socket opened");
                 Socket client = serverSocket.accept();
@@ -328,22 +332,24 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 serverSocket.close();
                 return f.getAbsolutePath();*/
 
-                ObjectInputStream inputStream = new ObjectInputStream(client.getInputStream());
+                InputStream in = client.getInputStream();
+                ObjectInputStream inputStream = new ObjectInputStream(in);
                 Message message = (Message) inputStream.readObject();
 
+                in.close();
+                inputStream.close();
                 serverSocket.close();
 
                 // record the address
-                /*if (message != null) {
+                if (message != null) {
                     if (message.getIsInit()) {
                         destAddr = client.getInetAddress();
 
                         Log.v(WiFiDirectActivity.TAG, "Receive initial message");
                         Log.v(WiFiDirectActivity.TAG, destAddr.getHostAddress());
 
-
                     }
-                }*/
+                }
 
                 return message;
 
@@ -362,15 +368,17 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
             if (result != null) {
                 statusText.setText("Message received - " + result.getMessageContent());
 
-                /*if (!result.getIsInit())  {*/
+                if (!result.getIsInit())  {
                     dialog.setMessage(result.getMessageContent())
                             .setPositiveButton(R.string.ok, new DialogInterface.OnClickListener() {
                                 public void onClick(DialogInterface dialog, int id) {
-                                    // Back to activity
+                                    //
                                 }
                             });
                     dialog.show();
-                //}
+                }
+
+                ((WiFiDirectActivity)getActivity()).onResume();
             }
 
         }
