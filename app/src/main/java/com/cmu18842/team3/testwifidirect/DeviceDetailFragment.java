@@ -22,8 +22,6 @@ import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.net.wifi.WifiInfo;
-import android.net.wifi.WifiManager;
 import android.net.wifi.WpsInfo;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
@@ -31,7 +29,6 @@ import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager.ConnectionInfoListener;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.text.format.Formatter;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -60,17 +57,10 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
     private WifiP2pDevice device;
     private WifiP2pInfo info;
 
-    private static final String IP_SERVER = "192.168.49.1";
-    private String destAddr;
-    private String sender_IP; //TODO: added, possibly deletable
-    private String client_mac_fixed = "hasn't been changed";
-    //private String localIP = "192.168.49.163";
-    private String clientIP = "hasn't been changed";
-    private String configuration = "hasn't been changed";
-
-    private WifiP2pConfig config = new WifiP2pConfig();
+    public StringCapsule destAddr = new StringCapsule();
 
     ProgressDialog progressDialog = null;
+
 
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
@@ -85,13 +75,8 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 
             @Override
             public void onClick(View v) {
-                //WifiP2pConfig config = new WifiP2pConfig();
+                WifiP2pConfig config = new WifiP2pConfig();
                 config.deviceAddress = device.deviceAddress;
-                configuration = config.deviceAddress;
-
-                Toast.makeText(getActivity(), "device = " + configuration,
-                        Toast.LENGTH_LONG).show();
-
                 config.wps.setup = WpsInfo.PBC;
                 if (progressDialog != null && progressDialog.isShowing()) {
                     progressDialog.dismiss();
@@ -105,7 +90,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 //                                ((DeviceActionListener) getActivity()).cancelDisconnect();
 //                            }
 //                        }
-                        );
+                );
                 ((DeviceActionListener) getActivity()).connect(config);
 
             }
@@ -117,7 +102,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                     @Override
                     public void onClick(View v) {
                         ((DeviceActionListener) getActivity()).disconnect();
-                        destAddr = null;
+                        destAddr.setAddr(null);
                     }
                 });
 
@@ -130,26 +115,10 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                         intent.setType("image/*");
                         startActivityForResult(intent, CHOOSE_FILE_RESULT_CODE);*/
 
-                        //destAddr = configuration;
-
-                        if (destAddr == null || destAddr.equals("hasn't been changed")) {
-                            Log.v(WiFiDirectActivity.TAG, "destAddr is " + destAddr);
+                        if (destAddr.getAddr() == null) {
+                            Log.v(WiFiDirectActivity.TAG, "destAddr is null");
                             return;
                         }
-                        else {
-                            if (destAddr.contains(":")) {
-                                Toast.makeText(getActivity(), "Destination Address is in mac form, needs to be converted" + destAddr,
-                                        Toast.LENGTH_SHORT).show();
-                                destAddr = Utils.getIPFromMac(destAddr); //convert from MAC to IP
-                            }
-                            Toast.makeText(getActivity(), "Destination Address is: " + destAddr,
-                                    Toast.LENGTH_SHORT).show();
-                        }
-
-                        //TODO: added
-                        Toast.makeText(getActivity(), "other device address = " + destAddr,
-                                Toast.LENGTH_LONG).show();
-
 
                         // Allow user to send message
                         EditText editMessage = (EditText) mContentView.findViewById(R.id.edit_message);
@@ -163,8 +132,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                         Message message = new Message();
                         message.setMessageContent(text);
 
-                        //TODO: added
-                        statusText.setText("Message: " + message.getMessageContent());
+                        //statusText.setText("Message: " + message.getMessageContent());
 
                         // TODO: Send to anyone
                         serviceIntent.setAction(MessageTransferService.ACTION_SEND_MESSAGE);
@@ -173,17 +141,15 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                         //serviceIntent.putExtra(MessageTransferService.EXTRAS_DESTINATION_ADDRESS,
                         //        info.groupOwnerAddress.getHostAddress());
                         serviceIntent.putExtra(MessageTransferService.EXTRAS_DESTINATION_ADDRESS,
-                                        destAddr);
-
-                        statusText.setText("Destination: " + message.getLocation());
+                                destAddr.getAddr());
 
                         serviceIntent.putExtra(MessageTransferService.EXTRAS_DESTINATION_PORT, 8988);
                         getActivity().startService(serviceIntent);
 
                         //statusText.setText("Message 2: " + message.getMessageContent());
 
-                        Toast.makeText(getActivity(), "Message should have been sent",
-                                Toast.LENGTH_SHORT).show();
+                        /*Toast.makeText(getActivity(), "Message should sent",
+                                Toast.LENGTH_SHORT).show();*/
 
                     }
                 });
@@ -212,7 +178,6 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 
     @Override
     public void onConnectionInfoAvailable(final WifiP2pInfo info) {
-
         if (progressDialog != null && progressDialog.isShowing()) {
             progressDialog.dismiss();
         }
@@ -224,31 +189,26 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         TextView view = (TextView) mContentView.findViewById(R.id.group_owner);
         view.setText(getResources().getString(R.string.group_owner_text)
                 + ((info.isGroupOwner == true) ? getResources().getString(R.string.yes)
-                        : getResources().getString(R.string.no)));
+                : getResources().getString(R.string.no)));
 
         // InetAddress from WifiP2pInfo struct.
         view = (TextView) mContentView.findViewById(R.id.device_info);
         view.setText("Group Owner IP - " + info.groupOwnerAddress.getHostAddress());
 
-
-        Toast.makeText(getActivity(), "Conn info avail",
-                Toast.LENGTH_SHORT).show();
-
-
         // After the group negotiation, we assign the group owner as the file
         // server. The file server is single threaded, single connection server
         // socket.
 
+        Toast.makeText(getActivity(), "Conn info avail",
+                Toast.LENGTH_SHORT).show();
+
         // TODO: Modified to let every node setting up server
         if (info.groupFormed) {
             if (!info.isGroupOwner) {
-                destAddr = info.groupOwnerAddress.getHostAddress();
-                //sender_IP = String.valueOf(R.id.device_address); //TODO: added
-
-                Toast.makeText(getActivity(), info.toString(),
-                        Toast.LENGTH_LONG).show();
+                destAddr.setAddr(info.groupOwnerAddress.getHostAddress());
 
                 Intent serviceIntent = new Intent(getActivity(), MessageTransferService.class);
+
 
                 Message message = new Message();
                 message.setIsInit(true);
@@ -259,52 +219,42 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 //serviceIntent.putExtra(MessageTransferService.EXTRAS_DESTINATION_ADDRESS,
                 //        info.groupOwnerAddress.getHostAddress());
                 serviceIntent.putExtra(MessageTransferService.EXTRAS_DESTINATION_ADDRESS,
-                        destAddr);
-
+                        destAddr.getAddr());
                 serviceIntent.putExtra(MessageTransferService.EXTRAS_DESTINATION_PORT, 8988);
 
                 MessageTransferService.fragment = this;
 
                 getActivity().startService(serviceIntent);
 
-                Log.v(WiFiDirectActivity.TAG, "Sending initial message to " + destAddr); //TODO: added
+                Log.v(WiFiDirectActivity.TAG, "Sending initial message to " + destAddr);
 
-                Toast.makeText(getActivity(), destAddr,
+                Toast.makeText(getActivity(), destAddr.getAddr(),
                         Toast.LENGTH_SHORT).show();
             }
-            //TODO: added
-            else {
-                //destAddr = configuration;
-
-                //Toast.makeText(getActivity(), info.toString(),
-                //        Toast.LENGTH_LONG).show();
-            }
-
             //else {
-                new MessageServerAsyncTask(getActivity(),
-                        mContentView.findViewById(R.id.status_text),
-                        new AlertDialog.Builder(getActivity()),
-                        destAddr)
-                        .execute();
+            new MessageServerAsyncTask(getActivity(),
+                    mContentView.findViewById(R.id.status_text),
+                    new AlertDialog.Builder(getActivity()),
+                    destAddr)
+                    .execute();
             //}
-
 
             // The other device acts as the client. In this case, we enable the
             // get file button.
             // NOTE: No longer valid
 
-            //show send button on client
             mContentView.findViewById(R.id.btn_start_client).setVisibility(View.VISIBLE);
             //((TextView) mContentView.findViewById(R.id.status_text)).setText(getResources()
             //        .getString(R.string.client_text));
         }
+
         // hide the connect button
         mContentView.findViewById(R.id.btn_connect).setVisibility(View.GONE);
     }
 
     /**
      * Updates the UI with device data
-     * 
+     *
      * @param device the device to be displayed
      */
     public void showDetails(WifiP2pDevice device) {
@@ -314,7 +264,6 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         view.setText(device.deviceAddress);
         view = (TextView) mContentView.findViewById(R.id.device_info);
         view.setText(device.toString());
-        client_mac_fixed = device.deviceAddress; //TODO: added
 
     }
 
@@ -344,18 +293,22 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         private Context context;
         private TextView statusText;
         private AlertDialog.Builder dialog;
-        private String destAddr;
+        //private String destAddr;
+
+        private StringCapsule destAddr;
 
         /**
          * @param context
          * @param statusText
          */
         public MessageServerAsyncTask(Context context, View statusText,
-                                      AlertDialog.Builder dialog, String destAddr) {
+                                      AlertDialog.Builder dialog, StringCapsule destAddr) {
             this.context = context;
             this.statusText = (TextView) statusText;
             this.dialog = dialog;
             this.destAddr = destAddr;
+
+
         }
 
         @Override
@@ -366,6 +319,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 Log.d(WiFiDirectActivity.TAG, "Server: Socket opened");
                 Socket client = serverSocket.accept();
 
+                destAddr.setAddr(client.getInetAddress().getHostAddress());
 
                 Log.d(WiFiDirectActivity.TAG, "Server: connection done");
                 /*final File f = new File(Environment.getExternalStorageDirectory() + "/"
@@ -395,10 +349,8 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 if (message != null) {
 
                     //destAddr = client.getInetAddress();
-                    destAddr = new String(client.getInetAddress().getHostAddress());
-
                     Log.v(WiFiDirectActivity.TAG, "Receive message");
-                    Log.v(WiFiDirectActivity.TAG, destAddr);
+                    Log.v(WiFiDirectActivity.TAG, destAddr.getAddr());
 
                 }
 
@@ -429,7 +381,13 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                     dialog.show();
                 }
 
-                ((WiFiDirectActivity)getActivity()).onResume();
+                Log.v(WiFiDirectActivity.TAG, "PostExecute");
+                Log.v(WiFiDirectActivity.TAG, destAddr.getAddr());
+                //((WiFiDirectActivity)getActivity()).onResume();
+                ((WiFiDirectActivity)context).onResume();
+
+                Log.v(WiFiDirectActivity.TAG, destAddr.getAddr());
+
             }
 
         }
@@ -466,6 +424,21 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         return true;
     }*/
 
+    class StringCapsule {
+        String addr;
 
+        StringCapsule() {
+            super();
+        }
 
+        public String getAddr() {
+            return addr;
+        }
+
+        public void setAddr(String addr) {
+            this.addr = addr;
+        }
+    }
 }
+
+
