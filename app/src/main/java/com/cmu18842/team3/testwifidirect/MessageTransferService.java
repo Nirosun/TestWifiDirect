@@ -3,16 +3,11 @@
 package com.cmu18842.team3.testwifidirect;
 
 import android.app.IntentService;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
-import android.net.Uri;
 import android.util.Log;
-import android.widget.Toast;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
@@ -35,7 +30,7 @@ public class MessageTransferService extends IntentService {
 
     public static final String EXTRAS_FRAGMENT = "fragment";
 
-    public static final String EXTRA_MESSAGE_CONTENT = "message_content";
+    public static final String EXTRAS_MESSAGE_CONTENT = "message_content";
     public static final String EXTRAS_DESTINATION_ADDRESS = "host";
     public static final String EXTRAS_DESTINATION_PORT = "port";
 
@@ -62,7 +57,7 @@ public class MessageTransferService extends IntentService {
 
         if (intent.getAction().equals(ACTION_SEND_MESSAGE)) {
             //String fileUri = intent.getExtras().getString(EXTRAS_FILE_PATH);
-            Message message = (Message) intent.getExtras().getSerializable(EXTRA_MESSAGE_CONTENT);
+            Message message = (Message) intent.getExtras().getSerializable(EXTRAS_MESSAGE_CONTENT);
 
             String host = intent.getExtras().getString(EXTRAS_DESTINATION_ADDRESS);
 

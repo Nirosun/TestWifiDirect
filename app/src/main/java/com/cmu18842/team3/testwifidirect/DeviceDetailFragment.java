@@ -22,6 +22,7 @@ import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.location.Location;
 import android.net.wifi.WpsInfo;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
@@ -38,11 +39,10 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.cmu18842.team3.testwifidirect.DeviceListFragment.DeviceActionListener;
+import com.cmu18842.team3.testwifidirect.location.GeoLocationProvider;
 
 import java.io.InputStream;
 import java.io.ObjectInputStream;
-import java.io.OutputStream;
-import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 
@@ -53,18 +53,25 @@ import java.net.Socket;
 public class DeviceDetailFragment extends Fragment implements ConnectionInfoListener {
 
     //protected static final int CHOOSE_FILE_RESULT_CODE = 20;
+
+    // TODO: Added location information
+    public static final int INTENT_TYPE_LOCATION_CHANGE = 1;
+    private GeoLocationProvider geoLocationProvider;
+    Location location;
+
     private View mContentView = null;
     private WifiP2pDevice device;
     private WifiP2pInfo info;
 
-    public StringCapsule destAddr = new StringCapsule();
+    public AddrCapsule destAddr = new AddrCapsule();
 
     ProgressDialog progressDialog = null;
-
 
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
+
+        geoLocationProvider = new GeoLocationProvider(getActivity());
     }
 
     @Override
@@ -106,7 +113,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                     }
                 });
 
-        mContentView.findViewById(R.id.btn_start_client).setOnClickListener(
+        mContentView.findViewById(R.id.btn_send_message).setOnClickListener(
                 new View.OnClickListener() {
 
                     @Override
@@ -134,9 +141,8 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 
                         //statusText.setText("Message: " + message.getMessageContent());
 
-                        // TODO: Send to anyone
                         serviceIntent.setAction(MessageTransferService.ACTION_SEND_MESSAGE);
-                        serviceIntent.putExtra(MessageTransferService.EXTRA_MESSAGE_CONTENT, message);
+                        serviceIntent.putExtra(MessageTransferService.EXTRAS_MESSAGE_CONTENT, message);
 
                         //serviceIntent.putExtra(MessageTransferService.EXTRAS_DESTINATION_ADDRESS,
                         //        info.groupOwnerAddress.getHostAddress());
@@ -150,31 +156,54 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 
                         /*Toast.makeText(getActivity(), "Message should sent",
                                 Toast.LENGTH_SHORT).show();*/
+                    }
+                });
 
+        mContentView.findViewById(R.id.btn_send_location).setOnClickListener(
+                new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        location = geoLocationProvider.getLocation();
+
+                        if (location != null) {
+                            Log.v(WiFiDirectActivity.TAG, "Sending: " + location.toString());
+
+                            Message message = new Message();
+                            message.setLocation(location.getLatitude(),
+                                    location.getLongitude(),
+                                    location.getTime());
+                            message.setIsLocation(true);
+
+                            Intent serviceIntent = new Intent(getActivity(), MessageTransferService.class);
+
+                            serviceIntent.setAction(MessageTransferService.ACTION_SEND_MESSAGE);
+                            serviceIntent.putExtra(MessageTransferService.EXTRAS_MESSAGE_CONTENT, message);
+                            serviceIntent.putExtra(MessageTransferService.EXTRAS_DESTINATION_ADDRESS,
+                                    destAddr.getAddr());
+                            serviceIntent.putExtra(MessageTransferService.EXTRAS_DESTINATION_PORT, 8988);
+                            getActivity().startService(serviceIntent);
+
+                            TextView statusText = (TextView) mContentView.findViewById(R.id.status_text);
+                            statusText.setText("Sending location");
+                            Log.v(WiFiDirectActivity.TAG, "Sending location to " + destAddr.getAddr());
+
+                        }
+                        else {
+                            AlertDialog.Builder dialog = new AlertDialog.Builder(getActivity());
+                            dialog.setMessage("Location not available now")
+                                    .setPositiveButton(R.string.ok, new DialogInterface.OnClickListener() {
+                                        public void onClick(DialogInterface dialog, int id) {
+                                            // Dismiss
+                                        }
+                                    });
+                            dialog.show();
+                        }
                     }
                 });
 
         return mContentView;
     }
 
-    /*@Override
-    public void onActivityResult(int requestCode, int resultCode, Intent data) {
-
-        // User has picked an image. Transfer it to group owner i.e peer using
-        // FileTransferService.
-
-        Uri uri = data.getData();
-        TextView statusText = (TextView) mContentView.findViewById(R.id.status_text);
-        statusText.setText("Sending: " + uri);
-        Log.d(WiFiDirectActivity.TAG, "Intent----------- " + uri);
-        Intent serviceIntent = new Intent(getActivity(), FileTransferService.class);
-        serviceIntent.setAction(FileTransferService.ACTION_SEND_FILE);
-        serviceIntent.putExtra(FileTransferService.EXTRAS_FILE_PATH, uri.toString());
-        serviceIntent.putExtra(FileTransferService.EXTRAS_GROUP_OWNER_ADDRESS,
-                info.groupOwnerAddress.getHostAddress());
-        serviceIntent.putExtra(FileTransferService.EXTRAS_GROUP_OWNER_PORT, 8988);
-        getActivity().startService(serviceIntent);
-    }*/
 
     @Override
     public void onConnectionInfoAvailable(final WifiP2pInfo info) {
@@ -214,7 +243,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 message.setIsInit(true);
 
                 serviceIntent.setAction(MessageTransferService.ACTION_SEND_MESSAGE);
-                serviceIntent.putExtra(MessageTransferService.EXTRA_MESSAGE_CONTENT, message);
+                serviceIntent.putExtra(MessageTransferService.EXTRAS_MESSAGE_CONTENT, message);
 
                 //serviceIntent.putExtra(MessageTransferService.EXTRAS_DESTINATION_ADDRESS,
                 //        info.groupOwnerAddress.getHostAddress());
@@ -243,7 +272,10 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
             // get file button.
             // NOTE: No longer valid
 
-            mContentView.findViewById(R.id.btn_start_client).setVisibility(View.VISIBLE);
+            mContentView.findViewById(R.id.btn_disconnect).setVisibility(View.VISIBLE);
+            mContentView.findViewById(R.id.btn_send_message).setVisibility(View.VISIBLE);
+            mContentView.findViewById(R.id.btn_send_location).setVisibility(View.VISIBLE);
+            mContentView.findViewById(R.id.edit_message).setVisibility(View.VISIBLE);
             //((TextView) mContentView.findViewById(R.id.status_text)).setText(getResources()
             //        .getString(R.string.client_text));
         }
@@ -280,7 +312,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         view.setText(R.string.empty);
         view = (TextView) mContentView.findViewById(R.id.status_text);
         view.setText(R.string.empty);
-        mContentView.findViewById(R.id.btn_start_client).setVisibility(View.GONE);
+        mContentView.findViewById(R.id.btn_send_message).setVisibility(View.GONE);
         this.getView().setVisibility(View.GONE);
     }
 
@@ -295,19 +327,18 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         private AlertDialog.Builder dialog;
         //private String destAddr;
 
-        private StringCapsule destAddr;
+        private AddrCapsule destAddr;
 
         /**
          * @param context
          * @param statusText
          */
         public MessageServerAsyncTask(Context context, View statusText,
-                                      AlertDialog.Builder dialog, StringCapsule destAddr) {
+                                      AlertDialog.Builder dialog, AddrCapsule destAddr) {
             this.context = context;
             this.statusText = (TextView) statusText;
             this.dialog = dialog;
             this.destAddr = destAddr;
-
 
         }
 
@@ -322,20 +353,6 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 destAddr.setAddr(client.getInetAddress().getHostAddress());
 
                 Log.d(WiFiDirectActivity.TAG, "Server: connection done");
-                /*final File f = new File(Environment.getExternalStorageDirectory() + "/"
-                        + context.getPackageName() + "/wifip2pshared-" + System.currentTimeMillis()
-                        + ".jpg");
-
-                File dirs = new File(f.getParent());
-                if (!dirs.exists())
-                    dirs.mkdirs();
-                f.createNewFile();
-
-                Log.d(WiFiDirectActivity.TAG, "server: copying files " + f.toString());
-                InputStream inputstream = client.getInputStream();
-                copyFile(inputstream, new FileOutputStream(f));
-                serverSocket.close();
-                return f.getAbsolutePath();*/
 
                 InputStream in = client.getInputStream();
                 ObjectInputStream inputStream = new ObjectInputStream(in);
@@ -372,18 +389,33 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
                 statusText.setText("Message received - " + result.getMessageContent());
 
                 if (!result.getIsInit())  {
-                    dialog.setMessage(result.getMessageContent())
-                            .setPositiveButton(R.string.ok, new DialogInterface.OnClickListener() {
-                                public void onClick(DialogInterface dialog, int id) {
-                                    //
-                                }
-                            });
+                    if (result.getMessageContent() != null)
+                    {
+                        dialog.setTitle("Message");
+                        dialog.setMessage(result.getMessageContent());
+                    }
+                    if (result.getIsLocation()) {
+                        Log.v(WiFiDirectActivity.TAG, "Receive location");
+                        Message.LocationInfo pos = result.getLocation();
+                        if (pos != null) {
+                            dialog.setTitle("Location");
+                            dialog.setMessage("Latitude: " + pos.getLatitude() +
+                                    "\nLongitude: " + pos.getLongitude() +
+                                    "\nTime: " + pos.getTime());
+                        }
+                        Log.v(WiFiDirectActivity.TAG, "Location is null");
+
+                    }
+                    dialog.setPositiveButton(R.string.ok, new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int id) {
+                            // Dismiss
+                        }
+                    });
                     dialog.show();
                 }
 
                 Log.v(WiFiDirectActivity.TAG, "PostExecute");
                 Log.v(WiFiDirectActivity.TAG, destAddr.getAddr());
-                //((WiFiDirectActivity)getActivity()).onResume();
                 ((WiFiDirectActivity)context).onResume();
 
                 Log.v(WiFiDirectActivity.TAG, destAddr.getAddr());
@@ -403,31 +435,11 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 
     }
 
-    /*public static boolean copyFile(InputStream inputStream, OutputStream out) {
-        byte buf[] = new byte[1024];
-        int len;
-        long startTime=System.currentTimeMillis();
-        
-        try {
-            while ((len = inputStream.read(buf)) != -1) {
-                out.write(buf, 0, len);
-            }
-            out.close();
-            inputStream.close();
-            long endTime=System.currentTimeMillis()-startTime;
-            Log.v("","Time taken to transfer all bytes is : "+endTime);
-            
-        } catch (IOException e) {
-            Log.d(WiFiDirectActivity.TAG, e.toString());
-            return false;
-        }
-        return true;
-    }*/
 
-    class StringCapsule {
+    class AddrCapsule {
         String addr;
 
-        StringCapsule() {
+        AddrCapsule() {
             super();
         }
 

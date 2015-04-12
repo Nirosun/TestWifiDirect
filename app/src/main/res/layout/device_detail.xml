@@ -25,20 +25,28 @@
                 android:id="@+id/btn_disconnect"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/disconnect_peer_button" />
+                android:text="@string/disconnect_peer_button"
+                android:visibility="gone" />
         </LinearLayout>
         <EditText
             android:id="@+id/edit_message"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/edit_message"
+            android:visibility="gone"
         />
         <Button
-            android:id="@+id/btn_start_client"
+            android:id="@+id/btn_send_message"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/send_message_button"
-            android:visibility="visible" />
+            android:visibility="gone" />
+        <Button
+            android:id="@+id/btn_send_location"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/send_location_button"
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/device_address"
